@@ -1,0 +1,46 @@
+version: "3.9"
+
+services:
+    database:
+        build:
+            context: "${PROJECTS_FOLDER}/database/"
+        container_name: "${PROJECT_NAME}-database"
+        restart: always  
+        volumes:
+            - "${DATA_FOLDER}/database:/var/lib/mysql/"
+        environment:
+            MYSQL_HOST: database
+            MYSQL_USER: "${PROJECT_NAME}"
+            MYSQL_DATABASE: "${PROJECT_NAME}"
+            MYSQL_PASSWORD: "${MYSQL_PASSWORD}"
+            MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD}"
+
+    web-server:
+        build:
+            context: "${PROJECTS_FOLDER}/web-server/"
+        container_name: "${PROJECT_NAME}-web-server"
+        restart: always
+        volumes:
+            - "${PROJECTS_FOLDER}${WWW_FOLDER}:/var/www/html/"
+        depends_on:
+            - database
+        ports:
+            - 80:80
+        environment:
+            MYSQL_HOST: database
+            MYSQL_USER: ${PROJECT_NAME}
+            MYSQL_DATABASE: ${PROJECT_NAME}
+            MYSQL_PASSWORD: "${MYSQL_PASSWORD}"
+
+    phpmyadmin:
+        image: phpmyadmin
+        restart: always
+        depends_on:
+            - database
+        ports:
+            - 8080:80
+        environment:
+            PMA_ARBITRARY: 1
+            PMA_HOST: database
+            PMA_USER: root
+            PMA_PASSWORD: "${MYSQL_PASSWORD}"

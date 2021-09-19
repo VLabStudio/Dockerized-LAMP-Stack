@@ -1,0 +1,76 @@
+# Go through all of the stages
+stages: 
+#    - build
+    - configuration-staging
+    - configuration-production
+    - containerize
+    - deploy
+
+# This stage is currently empty but would be the ideal place to do something like installing composer packages
+build:
+    stage: build
+    image: composer:1.10.22
+    only:
+        - staging
+        - production
+    script:
+        - echo "Hi"
+    artifacts:
+        paths:
+            - /builds/$CI_PROJECT_PATH
+
+# This stage makes sure that we are using the right php.ini file
+configuration-staging:
+    stage: build
+    image: ubuntu:latest
+    only:
+        - staging
+    script:
+        - mv configurations/php.ini.staging configurations/php.ini
+    artifacts:
+        paths:
+            - /builds/$CI_PROJECT_PATH
+
+# This stage makes sure that we are using the right php.ini file
+configuration-production:
+    stage: build
+    image: ubuntu:latest
+    only:
+        - production
+    script:
+        - mv configurations/php.ini.production configurations/php.ini
+    artifacts:
+        paths:
+            - /builds/$CI_PROJECT_PATH
+
+# The containerize stage takes all of the files from the build stage and bundles them into a docker image
+containerize:
+    stage: containerize
+    image: docker:latest
+    services:
+        - docker:dind
+    only:
+        - staging
+        - production
+    script:
+        - docker build --tag $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME .
+        - mkdir image
+        - docker save $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME > image/app.tar
+    artifacts:
+        paths:
+            - image
+
+# The deploy stage deploys the docker image to this projects gitlab registry
+deploy:
+    stage: deploy
+    image: docker:latest
+    services:
+        - docker:dind
+    only:
+        - staging
+        - production
+    script:
+        - docker load -i image/app.tar
+        - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+        - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME
+        - echo "Tell the world that a new image is available"
